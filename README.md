@@ -10,7 +10,7 @@ Documentation: [godoc.org/github.com/cznic/hash](http://godoc.org/github.com/czn
 
 # Purpose
 
-Map provided by this package can be useful when using a key type that is not comparable at the language level, like for example a slice.
+Maps provided by this package can be useful when using a key type that is not comparable at the language level, like for example a slice.
 
 # Generic types
 
