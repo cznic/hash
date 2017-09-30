@@ -20,7 +20,7 @@ Semiautomatic production of a type specific variant of this package is supported
 
      $ make generic
 
-This command will write to stdout a version of the hmap.go file where every key type occurrence is replaced by the word 'KEY' and every value type occurrence is replaced by the word 'VALUE'. Then you have to replace these tokens with your desired type(s), using any technique you're comfortable with.
+This command will write to stdout a version of the hash.go file where every key type occurrence is replaced by the word 'KEY' and every value type occurrence is replaced by the word 'VALUE'. Then you have to replace these tokens with your desired type(s), using any technique you're comfortable with.
 
 This is how, for example, 'example/int.go' was created:
 

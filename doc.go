@@ -19,7 +19,7 @@
 //
 //	$ make generic
 //
-// This command will write to stdout a version of the hmap.go file where every
+// This command will write to stdout a version of the hash.go file where every
 // key type occurrence is replaced by the word 'KEY' and every value type
 // occurrence is replaced by the word 'VALUE'. Then you have to replace these
 // tokens with your desired type(s), using any technique you're comfortable
