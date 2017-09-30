@@ -76,7 +76,7 @@ type Map struct {
 	split int64
 }
 
-// New returns a newly created Map. The map function takes a key and returns
+// New returns a newly created Map. The hash function takes a key and returns
 // its hash. The eq function takes two keys and returns whether they are
 // equal.
 func New(hash func(interface{} /*K*/) int64, eq func(a, b interface{} /*K*/) bool, initialCapacity int) *Map {
