@@ -6,7 +6,7 @@
 //
 // Purpose
 //
-// Map provideds by this package can be useful when using a key type that is not
+// Maps provided by this package can be useful when using a key type that is not
 // comparable at the language level, like for example a slice.
 //
 // Generic types
