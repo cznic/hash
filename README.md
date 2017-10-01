@@ -10,7 +10,9 @@ Documentation: [godoc.org/github.com/cznic/hash](http://godoc.org/github.com/czn
 
 # Purpose
 
-Maps provided by this package can be useful when using a key type that is not comparable at the language level, like for example a slice.
+Maps provided by this package can be useful when using a key type that is not comparable at the language level, like for example a slice or types containing slices etc.
+
+Such types are forbidden as keys of the builtin Go maps for good reasons. Care must be taken to not modify keys inserted into a Map.
 
 # Generic types
 
@@ -25,6 +27,6 @@ This command will write to stdout a version of the hash.go file where every key 
 This is how, for example, 'example/int.go' was created:
 
      $ mkdir example
-     $ make generic | sed -e 's/KEY/int64/g' -e 's/VALUE/int64/g' > example/int.go
+     $ make generic | sed -e 's/KEY/*big.Int/g' -e 's/VALUE/*big.Int/g' > example/int.go
 
-No other changes to int.go are necessary, it compiles just fine.
+After adding import "math/big", no other changes to int.go are necessary, it compiles just fine.

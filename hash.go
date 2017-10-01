@@ -80,7 +80,7 @@ type Map struct {
 // its hash. The eq function takes two keys and returns whether they are
 // equal.
 func New(hash func(interface{} /*K*/) int64, eq func(a, b interface{} /*K*/) bool, initialCapacity int) *Map {
-	initialCapacity = mathutil.Max(16, initialCapacity)
+	initialCapacity = mathutil.Max(1, initialCapacity)
 	bits := mathutil.Log2Uint64(uint64(initialCapacity))
 	initialCapacity = 1 << uint(bits)
 	return &Map{
@@ -144,14 +144,14 @@ func (m *Map) Delete(k interface{} /*K*/) {
 
 // Get returns the value associated with k and a boolean value indicating
 // whether the key is in the map.
-func (m *Map) Get(k interface{} /*K*/) (interface{} /*V*/, bool) {
+func (m *Map) Get(k interface{} /*K*/) (r interface{} /*V*/, ok bool) {
 	a := m.a(m.hash(k))
 	for _, item := range m.items[a] {
 		if m.eq(k, item.k) {
 			return item.v, true
 		}
 	}
-	return 0, false
+	return r, false
 }
 
 // Insert inserts v into the map associating it with k.

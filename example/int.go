@@ -5,20 +5,22 @@
 package hash
 
 import (
+	"math/big"
+
 	"github.com/cznic/mathutil"
 )
 
 const threshold = 3
 
 type item struct {
-	k int64
-	v int64
+	k *big.Int
+	v *big.Int
 }
 
 // Cursor provides enumerating of Map items.
 type Cursor struct {
-	K        int64
-	V        int64
+	K        *big.Int
+	V        *big.Int
 	hasMoved bool
 	i        int
 	j        int
@@ -66,8 +68,8 @@ next:
 // Map is a hash table.
 type Map struct {
 	bits  int
-	eq    func(a, b int64) bool
-	hash  func(int64) int64
+	eq    func(a, b *big.Int) bool
+	hash  func(*big.Int) int64
 	items [][]item
 	len   int
 	level int
@@ -79,8 +81,8 @@ type Map struct {
 // New returns a newly created Map. The hash function takes a key and returns
 // its hash. The eq function takes two keys and returns whether they are
 // equal.
-func New(hash func(int64) int64, eq func(a, b int64) bool, initialCapacity int) *Map {
-	initialCapacity = mathutil.Max(16, initialCapacity)
+func New(hash func(*big.Int) int64, eq func(a, b *big.Int) bool, initialCapacity int) *Map {
+	initialCapacity = mathutil.Max(1, initialCapacity)
 	bits := mathutil.Log2Uint64(uint64(initialCapacity))
 	initialCapacity = 1 << uint(bits)
 	return &Map{
@@ -112,7 +114,7 @@ func (m *Map) a(h int64) int64 {
 func (m *Map) Cursor() *Cursor { return &Cursor{m: m} }
 
 // Delete removes the element with key k from the map.
-func (m *Map) Delete(k int64) {
+func (m *Map) Delete(k *big.Int) {
 	a := m.a(m.hash(k))
 	b := m.items[a]
 	for i, item := range b {
@@ -144,18 +146,18 @@ func (m *Map) Delete(k int64) {
 
 // Get returns the value associated with k and a boolean value indicating
 // whether the key is in the map.
-func (m *Map) Get(k int64) (int64, bool) {
+func (m *Map) Get(k *big.Int) (r *big.Int, ok bool) {
 	a := m.a(m.hash(k))
 	for _, item := range m.items[a] {
 		if m.eq(k, item.k) {
 			return item.v, true
 		}
 	}
-	return 0, false
+	return r, false
 }
 
 // Insert inserts v into the map associating it with k.
-func (m *Map) Insert(k int64, v int64) {
+func (m *Map) Insert(k *big.Int, v *big.Int) {
 	a := m.a(m.hash(k))
 	b := m.items[a]
 	for i, item := range b {
