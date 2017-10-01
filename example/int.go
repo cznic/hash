@@ -126,20 +126,7 @@ func (m *Map) Delete(k *big.Int) {
 			b = b[:c]
 			m.items[a] = b
 			m.len--
-			if c < threshold {
-				return
-			}
-
-			if m.split == 0 {
-				m.split = m.mask2 + 1
-			}
-			m.split--
-			c = len(m.items) - 1
-			m.items[m.split] = append(m.items[m.split], m.items[c]...)
-			m.items = m.items[:c]
-			if m.split == 0 {
-				m.lv(m.level - 1)
-			}
+			return
 		}
 	}
 }

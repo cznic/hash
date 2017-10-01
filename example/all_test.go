@@ -78,41 +78,31 @@ func fnv(k *big.Int) int64 {
 
 func cmp(a, b *big.Int) bool { return a.Cmp(b) == 0 }
 
-func rnda(n int) []int64 {
+func rnda(n int) []*big.Int {
 	r, err := mathutil.NewFC32(math.MinInt32, math.MaxInt32, true)
 	if err != nil {
 		panic(err)
 	}
 
-	a := make([]int64, n)
+	a := make([]*big.Int, n)
 	for i := range a {
-		a[i] = int64(uint32(r.Next()))<<32 | int64(uint32(r.Next()))
+		a[i] = big.NewInt(int64(uint32(r.Next()))<<32 | int64(uint32(r.Next())))
 	}
 	return a
-}
-
-func (m *Map) insert(k, v int64) { m.Insert(big.NewInt(k), big.NewInt(v)) }
-
-func (m *Map) get(k int64) (int64, bool) {
-	if v, ok := m.Get(big.NewInt(k)); ok {
-		return v.Int64(), true
-	}
-
-	return 0, false
 }
 
 func test0(t *testing.T, initialCap, sz int) {
 	mp := New(fnv, cmp, initialCap)
 	n := 2 * initialCap
 	for i := 0; i < n; i++ {
-		mp.insert(int64(i), int64(10*i))
+		mp.Insert(big.NewInt(int64(i)), big.NewInt(int64(10*i)))
 		if g, e := mp.Len(), i+1; g != e {
 			t.Fatal(g, e)
 		}
 	}
 
 	for i := 0; i < n; i++ {
-		mp.insert(int64(i), int64(10*i))
+		mp.Insert(big.NewInt(int64(i)), big.NewInt(int64(10*i)))
 		if g, e := mp.Len(), n; g != e {
 			t.Fatal(g, e)
 		}
@@ -121,14 +111,14 @@ func test0(t *testing.T, initialCap, sz int) {
 	a := rnda(sz)
 	mp = New(fnv, cmp, initialCap)
 	for v, key := range a {
-		mp.insert(int64(key), int64(v))
+		mp.Insert(key, big.NewInt(int64(v)))
 		if g, e := mp.Len(), v+1; g != e {
 			t.Fatal(g, e)
 		}
 	}
 
 	for i, key := range a {
-		v, ok := mp.get(int64(key))
+		v, ok := mp.Get(key)
 		if g, e := ok, true; g != e {
 			t.Logf(
 				"initialCap %d, threshold %d, i %d, key %d",
@@ -137,7 +127,7 @@ func test0(t *testing.T, initialCap, sz int) {
 			t.Fatal(g, e)
 		}
 
-		if g, e := v, int64(i); g != e {
+		if g, e := v.Int64(), int64(i); g != e {
 			t.Logf(
 				"initialCap %d, threshold %d, i %d, key %d",
 				initialCap, threshold, i, key,
@@ -153,18 +143,16 @@ func Test0(t *testing.T) {
 	}
 }
 
-func (m *Map) delete(k int64) { m.Delete(big.NewInt(k)) }
-
 func testDelete(t *testing.T, initialCap, sz int) {
 	a := rnda(sz)
 	mp := New(fnv, cmp, initialCap)
 	for v, key := range a {
-		mp.insert(int64(key), int64(v))
+		mp.Insert(key, big.NewInt(int64(v)))
 	}
 
 	for i := len(a) - 1; i >= 0; i-- {
 		key := a[i]
-		v, ok := mp.get(int64(key))
+		v, ok := mp.Get(key)
 		if g, e := ok, true; g != e {
 			t.Logf(
 				"initialCap %d, threshold %d, i %d, key %d",
@@ -173,7 +161,7 @@ func testDelete(t *testing.T, initialCap, sz int) {
 			t.Fatal(g, e)
 		}
 
-		if g, e := v, int64(i); g != e {
+		if g, e := v.Int64(), int64(i); g != e {
 			t.Logf(
 				"initialCap %d, threshold %d, i %d, key %d",
 				initialCap, threshold, i, key,
@@ -181,12 +169,12 @@ func testDelete(t *testing.T, initialCap, sz int) {
 			t.Fatal(g, e)
 		}
 
-		mp.delete(int64(key))
+		mp.Delete(key)
 		if g, e := mp.Len(), i; g != e {
 			t.Fatal(g, e)
 		}
 
-		_, ok = mp.get(int64(key))
+		_, ok = mp.Get(key)
 		if g, e := ok, false; g != e {
 			t.Logf(
 				"initialCap %d, threshold %d, i %d, key %d",
@@ -196,7 +184,7 @@ func testDelete(t *testing.T, initialCap, sz int) {
 		}
 
 		for j := 0; j < i; j++ {
-			v, ok := mp.get(int64(a[j]))
+			v, ok := mp.Get(a[j])
 			if g, e := ok, true; g != e {
 				t.Logf(
 					"i %v, j %v, initialCap %d, threshold %d, key %d",
@@ -205,7 +193,7 @@ func testDelete(t *testing.T, initialCap, sz int) {
 				t.Fatal(g, e)
 			}
 
-			if g, e := v, int64(j); g != e {
+			if g, e := v.Int64(), int64(j); g != e {
 				t.Logf(
 					"i %v, j %v, initialCap %d, threshold %d, key %d",
 					i, j, initialCap, threshold, a[j],
@@ -224,27 +212,27 @@ func TestDelete(t *testing.T) {
 
 func TestMap(t *testing.T) {
 	a := rnda(560000)
-	m := make(map[int64]int64, len(a))
+	m := make(map[*big.Int]int64, len(a))
 	mp := New(fnv, cmp, 16)
 	for v, key := range a {
 		m[key] = int64(v)
-		mp.insert(key, int64(v))
+		mp.Insert(key, big.NewInt(int64(v)))
 	}
 
 	for v, key := range a {
 		switch v % 3 {
 		case 0:
-			mp.delete(key)
+			mp.Delete(key)
 			delete(m, key)
 		case 1:
-			mp.insert(key, -int64(v))
+			mp.Insert(key, big.NewInt(-int64(v)))
 			m[key] = -int64(v)
 		}
 	}
 
 	for v, key := range a {
 		if v%3 == 0 {
-			_, ok := mp.get(key)
+			_, ok := mp.Get(key)
 			if g, e := ok, false; g != e {
 				t.Fatal(g, e)
 			}
@@ -252,12 +240,12 @@ func TestMap(t *testing.T) {
 	}
 
 	for key, v := range m {
-		g, ok := mp.get(key)
+		g, ok := mp.Get(key)
 		if !ok {
 			t.Fatal(false)
 		}
 
-		if e := v; g != e {
+		if e := v; g.Int64() != e {
 			t.Fatal(g, e)
 		}
 	}
@@ -267,7 +255,7 @@ func TestMap(t *testing.T) {
 			t.Fatal("Cursor fail")
 		}
 
-		k := c.K.Int64()
+		k := c.K
 		e, ok := m[k]
 		if !ok {
 			t.Fatal("Cursor fail")
@@ -286,17 +274,18 @@ func TestMap(t *testing.T) {
 
 func benchmarkGet(b *testing.B, sz int) {
 	a := rnda(sz)
+	va := rnda(sz)
 	m := New(fnv, cmp, 0)
-	for v, k := range a {
-		m.insert(k, int64(v))
+	for i, k := range a {
+		m.Insert(k, va[i])
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for v, k := range a {
-			g, ok := m.get(k)
-			if !ok || g != int64(v) {
-				b.Fatal(ok, g, v)
+		for i, k := range a {
+			g, ok := m.Get(k)
+			if !ok || !cmp(g, va[i]) {
+				b.Fatal(ok, g, va[i])
 			}
 		}
 	}
@@ -320,11 +309,12 @@ func BenchmarkGet(b *testing.B) {
 
 func benchmarkInsert(b *testing.B, sz int) {
 	a := rnda(sz)
+	va := rnda(sz)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m := New(fnv, cmp, 0)
-		for v, k := range a {
-			m.insert(k, int64(v))
+		for i, k := range a {
+			m.Insert(k, va[i])
 		}
 	}
 	b.StopTimer()
@@ -347,13 +337,21 @@ func BenchmarkInsert(b *testing.B) {
 
 func benchmarkDelete(b *testing.B, sz int) {
 	a := rnda(sz)
+	va := rnda(sz)
+	m := New(fnv, cmp, 0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		m := New(fnv, cmp, 0)
+		if m.Len() != 0 {
+			b.Fatal(m.Len())
+		}
+
+		for i, k := range a {
+			m.Insert(k, va[i])
+		}
 		b.StartTimer()
 		for _, k := range a {
-			m.delete(k)
+			m.Delete(k)
 		}
 	}
 	b.StopTimer()

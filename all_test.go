@@ -335,10 +335,17 @@ func BenchmarkInsert(b *testing.B) {
 
 func benchmarkDelete(b *testing.B, sz int) {
 	a := rnda(sz)
+	m := New(fnv, cmp, 0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		m := New(fnv, cmp, 0)
+		if m.Len() != 0 {
+			b.Fatal(m.Len())
+		}
+
+		for v, k := range a {
+			m.Insert(k, int64(v))
+		}
 		b.StartTimer()
 		for _, k := range a {
 			m.Delete(k)
