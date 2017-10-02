@@ -10,7 +10,7 @@ import (
 	"github.com/cznic/mathutil"
 )
 
-const threshold = 3
+const threshold = 2
 
 type item struct {
 	k *big.Int
@@ -67,15 +67,16 @@ next:
 
 // Map is a hash table.
 type Map struct {
-	bits  int
+	bits  uint
 	eq    func(a, b *big.Int) bool
 	hash  func(*big.Int) int64
 	items [][]item
+	l     uint
 	len   int
-	level int
-	mask  int64
-	mask2 int64
-	split int64
+	mask  uint
+	mask2 uint
+	n     uint
+	s     uint
 }
 
 // New returns a newly created Map. The hash function takes a key and returns
@@ -83,31 +84,33 @@ type Map struct {
 // equal.
 func New(hash func(*big.Int) int64, eq func(a, b *big.Int) bool, initialCapacity int) *Map {
 	initialCapacity = mathutil.Max(1, initialCapacity)
-	bits := mathutil.Log2Uint64(uint64(initialCapacity))
-	initialCapacity = 1 << uint(bits)
-	return &Map{
+	bits := uint(mathutil.Log2Uint64(uint64(initialCapacity)))
+	initialCapacity = 1 << bits
+	r := &Map{
 		bits:  bits,
 		eq:    eq,
 		hash:  hash,
 		items: make([][]item, initialCapacity),
-		mask2: int64(1)<<uint(bits-1) - 1,
-		mask:  int64(1)<<uint(bits) - 1,
+		n:     uint(initialCapacity),
 	}
+	r.setL(0)
+	return r
 }
 
-func (m *Map) lv(j int) {
-	m.level = j
-	m.mask = int64(1)<<uint(j+m.bits) - 1
-	m.mask2 = m.mask >> 1
-}
-
-func (m *Map) a(h int64) int64 {
+func (m *Map) addr(k *big.Int) uint {
+	h := uint(m.hash(k))
 	a := h & m.mask
-	if a >= int64(len(m.items)) {
-		return h & m.mask2
+	if a < uint(len(m.items)) {
+		return a
 	}
 
-	return a
+	return h & m.mask2
+}
+
+func (m *Map) setL(l uint) {
+	m.mask = m.n<<l - 1
+	m.mask2 = m.mask >> 1
+	m.l = l
 }
 
 // Cursor returns a new map Cursor.
@@ -115,17 +118,19 @@ func (m *Map) Cursor() *Cursor { return &Cursor{m: m} }
 
 // Delete removes the element with key k from the map.
 func (m *Map) Delete(k *big.Int) {
-	a := m.a(m.hash(k))
+	a := m.addr(k)
 	b := m.items[a]
-	for i, item := range b {
-		if m.eq(k, item.k) {
-			c := len(b) - 1
-			if i < c {
-				b[i] = b[c]
-			}
-			b = b[:c]
-			m.items[a] = b
+	for i, v := range b {
+		if m.eq(v.k, k) {
 			m.len--
+			n := len(b) - 1
+			if n == 0 {
+				m.items[a] = nil
+				return
+			}
+
+			b[i] = b[n]
+			m.items[a] = b[:n]
 			return
 		}
 	}
@@ -134,47 +139,48 @@ func (m *Map) Delete(k *big.Int) {
 // Get returns the value associated with k and a boolean value indicating
 // whether the key is in the map.
 func (m *Map) Get(k *big.Int) (r *big.Int, ok bool) {
-	a := m.a(m.hash(k))
-	for _, item := range m.items[a] {
-		if m.eq(k, item.k) {
-			return item.v, true
+	a := m.addr(k)
+	for _, v := range m.items[a] {
+		if m.eq(v.k, k) {
+			return v.v, true
 		}
 	}
+
 	return r, false
 }
 
 // Insert inserts v into the map associating it with k.
 func (m *Map) Insert(k *big.Int, v *big.Int) {
-	a := m.a(m.hash(k))
+	a := m.addr(k)
 	b := m.items[a]
-	for i, item := range b {
-		if m.eq(k, item.k) {
+	for i, bv := range b {
+		if m.eq(bv.k, k) {
 			b[i].v = v
+			m.items[a] = b
 			return
 		}
 	}
 
-	m.len++
 	b = append(b, item{k, v})
 	m.items[a] = b
+	m.len++
 	if len(b) <= threshold {
 		return
 	}
 
-	m.items = append(m.items, []item(nil))
-	if m.split == 0 {
-		m.lv(m.level + 1)
+	m.items = append(m.items, nil)
+	b = m.items[m.s]
+	m.items[m.s] = nil
+	if m.s == 0 {
+		m.setL(m.l + 1)
 	}
-
-	b = m.items[m.split]
-	m.items[m.split] = nil
-	for _, item := range b {
-		a := m.a(m.hash(item.k))
-		m.items[a] = append(m.items[a], item)
+	for _, v := range b {
+		a := m.addr(v.k)
+		m.items[a] = append(m.items[a], v)
 	}
-	m.split++
-	if m.split == m.mask2+1 {
-		m.split = 0
+	m.s++
+	if m.s-1 == m.mask2 {
+		m.s = 0
 	}
 }
 

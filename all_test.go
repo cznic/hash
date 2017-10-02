@@ -55,28 +55,17 @@ func init() {
 
 // ============================================================================
 
+const (
+	offset64 = 14695981039346656037
+	prime64  = 1099511628211
+)
+
 var (
 	exp = flag.Int("e", -1, "")
 )
 
-func fnv(k interface{}) int64 {
-	const (
-		offset64 = 14695981039346656037
-		prime64  = 1099511628211
-	)
-
-	hash := uint64(offset64)
-	u := uint64(k.(int64))
-	for i := 0; i < 8; i++ {
-		c := uint64(byte(u))
-		hash ^= c
-		hash *= prime64
-		u >>= 8
-	}
-	return int64(hash)
-}
-
-func cmp(a, b interface{}) bool { return a.(int64) == b.(int64) }
+func fnv(k interface{}) (h int64) { return int64(offset64 ^ uint64(k.(int64))*prime64) }
+func cmp(a, b interface{}) bool   { return a.(int64) == b.(int64) }
 
 func rnda(n int) []int64 {
 	r, err := mathutil.NewFC32(math.MinInt32, math.MaxInt32, true)
@@ -139,7 +128,7 @@ func test0(t *testing.T, initialCap, sz int) {
 
 func Test0(t *testing.T) {
 	for initialCap := 1; initialCap <= 16; initialCap <<= 1 {
-		test0(t, initialCap, 51000)
+		test0(t, initialCap, 610000)
 	}
 }
 
@@ -206,12 +195,12 @@ func testDelete(t *testing.T, initialCap, sz int) {
 
 func TestDelete(t *testing.T) {
 	for initialCap := 1; initialCap <= 16; initialCap <<= 1 {
-		testDelete(t, initialCap, 1100)
+		testDelete(t, initialCap, 4500)
 	}
 }
 
 func TestMap(t *testing.T) {
-	a := rnda(560000)
+	a := rnda(1000000)
 	m := make(map[int64]int64, len(a))
 	mp := New(fnv, cmp, 16)
 	for v, key := range a {
