@@ -105,7 +105,41 @@ func test0(t *testing.T, initialCap, sz int) {
 			t.Fatal(g, e)
 		}
 	}
+	if g, e := mp.Len(), sz; g != e {
+		t.Logf(
+			"initialCap %d, threshold %d",
+			initialCap, threshold,
+		)
+		t.Fatal(g, e)
+	}
 
+	for i, key := range a {
+		v, ok := mp.Get(int64(key))
+		if g, e := ok, true; g != e {
+			t.Logf(
+				"initialCap %d, threshold %d, i %d, key %d",
+				initialCap, threshold, i, key,
+			)
+			t.Fatal(g, e)
+		}
+
+		if g, e := v, int64(i); g != e {
+			t.Logf(
+				"initialCap %d, threshold %d, i %d, key %d",
+				initialCap, threshold, i, key,
+			)
+			t.Fatal(g, e)
+		}
+	}
+
+	mp.Vacuum()
+	if g, e := mp.Len(), sz; g != e {
+		t.Logf(
+			"initialCap %d, threshold %d",
+			initialCap, threshold,
+		)
+		t.Fatal(g, e)
+	}
 	for i, key := range a {
 		v, ok := mp.Get(int64(key))
 		if g, e := ok, true; g != e {

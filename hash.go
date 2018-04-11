@@ -35,6 +35,13 @@ type Cursor struct {
 //	for c := m.Cursor(); c.Next(); {
 //		... c.K, c.V valid here
 //	}
+//
+// The iteration order is not specified and is not guaranteed to be the same
+// from one iteration to the next. If a map entry that has not yet been reached
+// is removed during iteration, the corresponding iteration value will not be
+// produced. If a map entry is created during iteration, that entry may be
+// produced during the iteration or may be skipped. The choice may vary for
+// each entry created and from one iteration to the next.
 func (c *Cursor) Next() bool {
 	if c.m == nil {
 		return false
@@ -45,27 +52,23 @@ func (c *Cursor) Next() bool {
 	}
 	c.hasMoved = true
 
-next:
-	if c.i >= len(c.m.items) {
-		c.m = nil
-		return false
+	for n := len(c.m.items); c.i < n; c.i, c.j = c.i+1, 0 {
+		b := c.m.items[c.i]
+		for ; c.j < len(b); c.j++ {
+			if b[c.j].k != nil {
+				c.K = b[c.j].k
+				c.V = b[c.j].v
+				return true
+			}
+		}
 	}
 
-	b := c.m.items[c.i]
-	if c.j < len(b) {
-		c.K = b[c.j].k
-		c.V = b[c.j].v
-		return true
-	}
-
-	c.j = 0
-	c.i++
-	goto next
+	c.m = nil
+	return false
 }
 
 // Map is a hash table.
 type Map struct {
-	bits  uint
 	eq    func(a, b interface{} /*K*/) bool
 	hash  func(interface{} /*K*/) int64
 	items [][]item
@@ -82,10 +85,8 @@ type Map struct {
 // equal.
 func New(hash func(interface{} /*K*/) int64, eq func(a, b interface{} /*K*/) bool, initialCapacity int) *Map {
 	initialCapacity = mathutil.Max(1, initialCapacity)
-	bits := uint(mathutil.Log2Uint64(uint64(initialCapacity)))
-	initialCapacity = 1 << bits
+	initialCapacity = 1 << uint(mathutil.Log2Uint64(uint64(initialCapacity)))
 	r := &Map{
-		bits:  bits,
 		eq:    eq,
 		hash:  hash,
 		items: make([][]item, initialCapacity),
@@ -119,7 +120,7 @@ func (m *Map) Delete(k interface{} /*K*/) {
 	a := m.addr(k)
 	b := m.items[a]
 	for i, v := range b {
-		if m.eq(v.k, k) {
+		if v.k != nil && m.eq(v.k, k) {
 			m.len--
 			n := len(b) - 1
 			if n == 0 {
@@ -127,8 +128,12 @@ func (m *Map) Delete(k interface{} /*K*/) {
 				return
 			}
 
-			b[i] = b[n]
-			m.items[a] = b[:n]
+			if i == n {
+				m.items[a] = b[:n]
+				return
+			}
+
+			b[i] = item{}
 			return
 		}
 	}
@@ -139,29 +144,40 @@ func (m *Map) Delete(k interface{} /*K*/) {
 func (m *Map) Get(k interface{} /*K*/) (r interface{} /*V*/, ok bool) {
 	a := m.addr(k)
 	for _, v := range m.items[a] {
-		if m.eq(v.k, k) {
+		if v.k != nil && m.eq(v.k, k) {
 			return v.v, true
 		}
 	}
 
-	return r, false
+	return nil, false
 }
 
 // Insert inserts v into the map associating it with k.
 func (m *Map) Insert(k interface{} /*K*/, v interface{} /*V*/) {
 	a := m.addr(k)
 	b := m.items[a]
+	j := -1
 	for i, bv := range b {
-		if m.eq(bv.k, k) {
-			b[i].v = v
-			m.items[a] = b
-			return
+		switch {
+		case bv.k == nil:
+			j = i
+		default:
+			if m.eq(bv.k, k) {
+				b[i].v = v
+				m.items[a] = b
+				return
+			}
 		}
+	}
+
+	m.len++
+	if j >= 0 {
+		b[j] = item{k, v}
+		return
 	}
 
 	b = append(b, item{k, v})
 	m.items[a] = b
-	m.len++
 	if len(b) <= threshold {
 		return
 	}
@@ -172,9 +188,22 @@ func (m *Map) Insert(k interface{} /*K*/, v interface{} /*V*/) {
 	if m.s == 0 {
 		m.setL(m.l + 1)
 	}
+outer:
 	for _, v := range b {
+		if v.k == nil {
+			continue
+		}
+
 		a := m.addr(v.k)
-		m.items[a] = append(m.items[a], v)
+		c := m.items[a]
+		for i, w := range c {
+			if w.k == nil {
+				c[i] = v
+				continue outer
+			}
+		}
+
+		m.items[a] = append(c, v)
 	}
 	m.s++
 	if m.s-1 == m.mask2 {
@@ -184,3 +213,14 @@ func (m *Map) Insert(k interface{} /*K*/, v interface{} /*V*/) {
 
 // Len returns the number of items in the map.
 func (m *Map) Len() int { return m.len }
+
+// Vacuum rebuilds m, repacking it into a possibly smaller amount of memory.
+func (m *Map) Vacuum() {
+	m2 := New(m.hash, m.eq, m.Len())
+	c := m.Cursor()
+	for c.Next() {
+		m.Delete(c.K)
+		m2.Insert(c.K, c.V)
+	}
+	*m = *m2
+}
